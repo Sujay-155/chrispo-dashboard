@@ -339,226 +339,169 @@ def create_dashboard():
         st.plotly_chart(fig_words, use_container_width=True)
     
     # ==========================
-    # TAB 3: IMAGE PROCESSING
-    # ==========================
-    with tab3:
-        st.header("Image Processing Module")
+# TAB 3: IMAGE PROCESSING
+# ==========================
+with tab3:
+    st.header("Image Processing Module")
+    
+    # Image Gallery Section
+    st.subheader("Day-wise Image Gallery")
+    view_day = st.selectbox("Select Day to View Gallery:", range(1, 6), key="gallery_day")
+    
+    # Sports for this day (from your dataset)
+    day_sports = data[data['Day'] == view_day]['Sport'].unique()
+    
+    # Predefined image URLs for each sport (no need to generate or store files)
+    sport_image_urls = {
+        'Basketball': 'https://images.unsplash.com/photo-1546519638-68e109498ffc',
+        'Football': 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68',
+        'Tennis': 'https://images.unsplash.com/photo-1595435934249-5df7ed86e1c1',
+        'Swimming': 'https://images.unsplash.com/photo-1560089000-7433a4ebbd64',
+        'Athletics': 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5',
+        'Volleyball': 'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1',
+        'Badminton': 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea',
+        'Cricket': 'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e',
+        'Chess': 'https://images.unsplash.com/photo-1560174038-da43ac74f01b',
+        'Table Tennis': 'https://images.unsplash.com/photo-1534158914592-062992fbe900'
+    }
+    
+    if len(day_sports) > 0:
+        st.markdown(f"### Sports Events - Day {view_day}")
         
-        # Generate sample images if we don't have any
-        if not os.path.exists("sample_images"):
-            with st.spinner("Generating sample sports images..."):
-                os.makedirs("sample_images", exist_ok=True)
-                img_count = generate_sample_images()
-                st.success(f"Generated {img_count} sample images for the gallery")
+        # Create columns for gallery display
+        cols = st.columns(2)
         
-        # Image Gallery Section
-        st.subheader("Day-wise Image Gallery")
-        view_day = st.selectbox("Select Day to View Gallery:", range(1, 6), key="gallery_day")
-        
-        # Look for images in either sample_images or temp_uploads
-        image_files = []
-        
-        # Check sample images directory first
-        sample_dir = f"sample_images/day_{view_day}"
-        if os.path.exists(sample_dir):
-            image_files.extend(glob.glob(f"{sample_dir}/*.jpg"))
-            image_files.extend(glob.glob(f"{sample_dir}/*.jpeg"))
-            image_files.extend(glob.glob(f"{sample_dir}/*.png"))
-        
-        # Check user uploads directory
-        temp_dir = f"temp_uploads/day_{view_day}"
-        if os.path.exists(temp_dir):
-            image_files.extend(glob.glob(f"{temp_dir}/*.jpg"))
-            image_files.extend(glob.glob(f"{temp_dir}/*.jpeg"))
-            image_files.extend(glob.glob(f"{temp_dir}/*.png"))
-        
-        if image_files:
-            st.markdown(f"### Sports Events - Day {view_day}")
-            
-            # Create columns for gallery display
-            cols = st.columns(2)
-            
-            for i, image_file in enumerate(image_files):
-                try:
-                    with cols[i % 2]:
-                        img = Image.open(image_file)
-                        sport_name = os.path.basename(image_file).split('.')[0]
-                        st.image(img, caption=f"{sport_name} - Day {view_day}", use_column_width=True)
-                except Exception as e:
-                    st.error(f"Error displaying image {image_file}: {str(e)}")
-        else:
-            st.info(f"No images found for Day {view_day}.")
-        
-        # Add option to upload additional images
-        st.markdown("---")
-        st.subheader("Upload More Gallery Images")
-        
-        upload_day = st.selectbox("Select day to upload additional images for:", range(1, 6), key="upload_day")
-        uploaded_gallery_images = st.file_uploader(
-            "Upload more images for the gallery",
+        for i, sport in enumerate(day_sports):
+            with cols[i % 2]:
+                # Get image URL for this sport
+                image_url = sport_image_urls.get(sport, 'https://via.placeholder.com/400x300?text=No+Image')
+                
+                # Display image directly from URL
+                st.image(image_url, caption=f"{sport} - Day {view_day}", use_container_width=True)
+    else:
+        st.info(f"No sports scheduled for Day {view_day}")
+
+    st.markdown("""<div style="text-align:right; font-size:0.8em;">
+                Images from <a href="https://unsplash.com">Unsplash</a></div>""", 
+                unsafe_allow_html=True)
+    
+    # Custom Image Processing Section
+    st.markdown("---")
+    st.subheader("Custom Image Processing")
+    
+    # Two options: Select from gallery or upload new
+    processing_source = st.radio(
+        "Select image source for processing:",
+        ["Upload New Image", "Use Sport Image"]
+    )
+    
+    image_to_process = None
+    
+    if processing_source == "Upload New Image":
+        uploaded_file = st.file_uploader(
+            "Upload an image for processing",
             type=["jpg", "jpeg", "png"],
-            accept_multiple_files=True,
-            key="additional_gallery_images"
+            key="processing_image"
+        )
+        if uploaded_file:
+            image_to_process = Image.open(uploaded_file)
+    else:
+        # Select from sports
+        selected_sport = st.selectbox("Select sport:", sorted(sport_image_urls.keys()))
+        
+        if selected_sport:
+            # Get image from URL
+            image_url = sport_image_urls[selected_sport]
+            try:
+                response = requests.get(image_url)
+                image_to_process = Image.open(io.BytesIO(response.content))
+            except Exception as e:
+                st.error(f"Error loading image: {str(e)}")
+    
+    # Process the image if we have one
+    if image_to_process:
+        # Effect selection
+        effect = st.selectbox(
+            "Select an effect to apply",
+            ["None", "Blur", "Sharpen", "Contour", "Enhance", "Grayscale", "Sepia", "Adjust Colors"]
         )
         
-        if uploaded_gallery_images:
-            # Create directory if it doesn't exist
-            os.makedirs(f"temp_uploads/day_{upload_day}", exist_ok=True)
-            
-            for img_file in uploaded_gallery_images:
-                # Save the uploaded image
-                img_path = f"temp_uploads/day_{upload_day}/{img_file.name}"
-                with open(img_path, "wb") as f:
-                    f.write(img_file.getbuffer())
-                st.success(f"Added {img_file.name} to Day {upload_day} gallery!")
+        # Parameter sliders based on selected effect
+        params = {}
+        if effect == "Blur":
+            params['radius'] = st.slider("Blur Radius", 1, 20, 5)
+        elif effect == "Enhance":
+            params['factor'] = st.slider("Enhancement Factor", 0.0, 5.0, 1.5)
+        elif effect == "Adjust Colors":
+            params['brightness'] = st.slider("Brightness", 0.0, 2.0, 1.0)
+            params['contrast'] = st.slider("Contrast", 0.0, 2.0, 1.0)
+            params['saturation'] = st.slider("Saturation", 0.0, 2.0, 1.0)
         
-        # Custom Image Processing Section
-        st.markdown("---")
-        st.subheader("Custom Image Processing")
+        # Display original and processed images side by side
+        col1, col2 = st.columns(2)
         
-        # Two options: Select from gallery or upload new
-        processing_source = st.radio(
-            "Select image source for processing:",
-            ["Upload New Image", "Use Image from Gallery"]
-        )
+        with col1:
+            st.subheader("Original Image")
+            st.image(image_to_process, use_container_width=True)
         
-        image_to_process = None
-        
-        if processing_source == "Upload New Image":
-            uploaded_file = st.file_uploader(
-                "Upload an image for processing",
-                type=["jpg", "jpeg", "png"],
-                key="processing_image"
-            )
-            if uploaded_file:
-                image_to_process = Image.open(uploaded_file)
-        else:
-            # Select from gallery
-            select_day = st.selectbox("Select day:", range(1, 6), key="select_process_day")
+        with col2:
+            st.subheader("Processed Image")
             
-            # Combine files from both directories
-            gallery_files = []
-            
-            # Check sample images first
-            if os.path.exists(f"sample_images/day_{select_day}"):
-                gallery_files.extend(glob.glob(f"sample_images/day_{select_day}/*.jpg"))
-                gallery_files.extend(glob.glob(f"sample_images/day_{select_day}/*.jpeg"))
-                gallery_files.extend(glob.glob(f"sample_images/day_{select_day}/*.png"))
-            
-            # Check user uploads
-            if os.path.exists(f"temp_uploads/day_{select_day}"):
-                gallery_files.extend(glob.glob(f"temp_uploads/day_{select_day}/*.jpg"))
-                gallery_files.extend(glob.glob(f"temp_uploads/day_{select_day}/*.jpeg"))
-                gallery_files.extend(glob.glob(f"temp_uploads/day_{select_day}/*.png"))
-            
-            if gallery_files:
-                file_names = [os.path.basename(f) for f in gallery_files]
-                selected_file = st.selectbox("Select image from gallery:", file_names)
+            # Apply the selected effect
+            try:
+                if effect == "Blur":
+                    processed_image = image_to_process.filter(ImageFilter.GaussianBlur(params['radius']))
+                elif effect == "Sharpen":
+                    processed_image = image_to_process.filter(ImageFilter.SHARPEN)
+                elif effect == "Contour":
+                    processed_image = image_to_process.filter(ImageFilter.CONTOUR)
+                elif effect == "Enhance":
+                    enhancer = ImageEnhance.Contrast(image_to_process)
+                    processed_image = enhancer.enhance(params.get('factor', 2.0))
+                elif effect == "Grayscale":
+                    processed_image = image_to_process.convert('L')
+                elif effect == "Sepia":
+                    # Create sepia effect
+                    grayscale = image_to_process.convert('L')
+                    sepia = Image.new('RGB', image_to_process.size)
+                    for x in range(image_to_process.width):
+                        for y in range(image_to_process.height):
+                            gray_value = grayscale.getpixel((x, y))
+                            sepia.putpixel((x, y), (min(gray_value + 100, 255), 
+                                                   min(gray_value + 50, 255), 
+                                                   max(gray_value - 20, 0)))
+                    processed_image = sepia
+                elif effect == "Adjust Colors":
+                    # Apply multiple enhancements
+                    temp_image = image_to_process
+                    
+                    enhancer = ImageEnhance.Brightness(temp_image)
+                    temp_image = enhancer.enhance(params['brightness'])
+                    
+                    enhancer = ImageEnhance.Contrast(temp_image)
+                    temp_image = enhancer.enhance(params['contrast'])
+                    
+                    enhancer = ImageEnhance.Color(temp_image)
+                    processed_image = enhancer.enhance(params['saturation'])
+                else:
+                    processed_image = image_to_process
                 
-                if selected_file:
-                    # Look in both directories
-                    file_path = None
-                    
-                    # Check sample_images first
-                    temp_path = f"sample_images/day_{select_day}/{selected_file}"
-                    if os.path.exists(temp_path):
-                        file_path = temp_path
-                    
-                    # If not found, check temp_uploads
-                    if file_path is None:
-                        temp_path = f"temp_uploads/day_{select_day}/{selected_file}"
-                        if os.path.exists(temp_path):
-                            file_path = temp_path
-                    
-                    if file_path:
-                        image_to_process = Image.open(file_path)
-            else:
-                st.warning(f"No images found for Day {select_day}")
-        
-        # Process the image if we have one
-        if image_to_process:
-            # Effect selection
-            effect = st.selectbox(
-                "Select an effect to apply",
-                ["None", "Blur", "Sharpen", "Contour", "Enhance", "Grayscale", "Sepia", "Adjust Colors"]
-            )
-            
-            # Parameter sliders based on selected effect
-            params = {}
-            if effect == "Blur":
-                params['radius'] = st.slider("Blur Radius", 1, 20, 5)
-            elif effect == "Enhance":
-                params['factor'] = st.slider("Enhancement Factor", 0.0, 5.0, 1.5)
-            elif effect == "Adjust Colors":
-                params['brightness'] = st.slider("Brightness", 0.0, 2.0, 1.0)
-                params['contrast'] = st.slider("Contrast", 0.0, 2.0, 1.0)
-                params['saturation'] = st.slider("Saturation", 0.0, 2.0, 1.0)
-            
-            # Display original and processed images side by side
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("Original Image")
-                st.image(image_to_process, use_column_width=True)
-            
-            with col2:
-                st.subheader("Processed Image")
+                # Display processed image
+                st.image(processed_image, use_container_width=True)
                 
-                # Apply the selected effect
-                try:
-                    if effect == "Blur":
-                        processed_image = image_to_process.filter(ImageFilter.GaussianBlur(params['radius']))
-                    elif effect == "Sharpen":
-                        processed_image = image_to_process.filter(ImageFilter.SHARPEN)
-                    elif effect == "Contour":
-                        processed_image = image_to_process.filter(ImageFilter.CONTOUR)
-                    elif effect == "Enhance":
-                        enhancer = ImageEnhance.Contrast(image_to_process)
-                        processed_image = enhancer.enhance(params.get('factor', 2.0))
-                    elif effect == "Grayscale":
-                        processed_image = image_to_process.convert('L')
-                    elif effect == "Sepia":
-                        # Create sepia effect
-                        grayscale = image_to_process.convert('L')
-                        sepia = Image.new('RGB', image_to_process.size)
-                        for x in range(image_to_process.width):
-                            for y in range(image_to_process.height):
-                                gray_value = grayscale.getpixel((x, y))
-                                sepia.putpixel((x, y), (min(gray_value + 100, 255), 
-                                                       min(gray_value + 50, 255), 
-                                                       max(gray_value - 20, 0)))
-                        processed_image = sepia
-                    elif effect == "Adjust Colors":
-                        # Apply multiple enhancements
-                        temp_image = image_to_process
-                        
-                        enhancer = ImageEnhance.Brightness(temp_image)
-                        temp_image = enhancer.enhance(params['brightness'])
-                        
-                        enhancer = ImageEnhance.Contrast(temp_image)
-                        temp_image = enhancer.enhance(params['contrast'])
-                        
-                        enhancer = ImageEnhance.Color(temp_image)
-                        processed_image = enhancer.enhance(params['saturation'])
-                    else:
-                        processed_image = image_to_process
-                    
-                    # Display processed image
-                    st.image(processed_image, use_column_width=True)
-                    
-                    # Option to download the processed image
-                    buf = io.BytesIO()
-                    processed_image.save(buf, format="PNG")
-                    byte_im = buf.getvalue()
-                    
-                    st.download_button(
-                        label="Download processed image",
-                        data=byte_im,
-                        file_name=f"processed_{effect.lower()}.png",
-                        mime="image/png"
-                    )
-                except Exception as e:
-                    st.error(f"Error processing image: {str(e)}")
+                # Option to download the processed image
+                buf = io.BytesIO()
+                processed_image.save(buf, format="PNG")
+                byte_im = buf.getvalue()
+                
+                st.download_button(
+                    label="Download processed image",
+                    data=byte_im,
+                    file_name=f"processed_{effect.lower()}.png",
+                    mime="image/png"
+                )
+            except Exception as e:
+                st.error(f"Error processing image: {str(e)}")
 
 # Add footer with app info
 def add_footer():
